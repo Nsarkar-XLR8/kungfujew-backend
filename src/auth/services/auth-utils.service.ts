@@ -11,8 +11,8 @@ import {
 } from '../interfaces/auth.interface';
 import { AUTH_CONFIG } from '../config/auth.config';
 import { RedisService } from '../../common/services/redis.service';
+import { CryptoService } from '../../common/services/crypto.service';
 import AppError from '../../common/errors/app.error';
-import crypto from 'crypto';
 
 interface TokenOptions {
   isRefresh?: boolean;
@@ -25,7 +25,10 @@ interface TokenOptions {
  */
 @Injectable()
 export class AuthUtilsService {
-  constructor(private readonly redisService: RedisService) {}
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly cryptoService: CryptoService,
+  ) {}
 
   /**
    * Auth-specific Redis rate limiting is enabled by default only in production.
@@ -46,14 +49,14 @@ export class AuthUtilsService {
    * Used for JTI (JWT ID) to prevent collisions
    */
   generateSecureId(): string {
-    return crypto.randomBytes(32).toString('hex');
+    return this.cryptoService.generateSecureId();
   }
 
   /**
    * Generates a random verification code
    */
   generateVerificationCode = (): string => {
-    return crypto.randomBytes(3).toString('hex').toUpperCase().slice(0, 6);
+    return this.cryptoService.generateSecureOtp(6);
   };
 
   /**
@@ -61,7 +64,7 @@ export class AuthUtilsService {
    * Never store raw tokens - only hashes
    */
   hashToken(token: string): string {
-    return crypto.createHash('sha256').update(token).digest('hex');
+    return this.cryptoService.hashToken(token);
   }
 
   /**
@@ -289,7 +292,6 @@ export class AuthUtilsService {
     const { ROLE_HIERARCHY } = AUTH_CONFIG;
     const roleLevels: Record<UserRole, number> = {
       [UserRole.CUSTOMER]: ROLE_HIERARCHY.customer,
-      [UserRole.BUSINESS_OWNER]: ROLE_HIERARCHY.businessowner,
       [UserRole.ADMIN]: ROLE_HIERARCHY.admin,
     };
 
@@ -302,12 +304,6 @@ export class AuthUtilsService {
       return targetRoleLevel < adminLevel && newRoleLevel < adminLevel;
     }
 
-    // Business owner can only modify customer roles
-    if (currentUserRole === UserRole.BUSINESS_OWNER) {
-      return (
-        targetUserRole === UserRole.CUSTOMER && newRole === UserRole.CUSTOMER
-      );
-    }
 
     // Customer cannot modify any roles
     if (currentUserRole === UserRole.CUSTOMER) {

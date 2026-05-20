@@ -20,6 +20,7 @@ import {
   ResetPasswordDto,
 } from './dto/forgot-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { VerifyEmailDto, ResendVerificationDto } from './dto/verify-email.dto';
 import {
   GoogleOAuthInitDto,
   GoogleOAuthCallbackDto,
@@ -67,6 +68,40 @@ export class AuthController {
       message: 'Registration and login successful',
       data: result,
     };
+  }
+
+  // ==========================================
+  // Email Verification Endpoints
+  // ==========================================
+
+  @Throttle({ default: THROTTLER_CONFIG.AUTH })
+  @Post('verify-email')
+  async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto, @Req() req: Request) {
+    this.customLogger.log(
+      `Email verification attempt for: ${verifyEmailDto.email}`,
+      'AuthController',
+    );
+    const meta = {
+      ip: req.ip || 'unknown',
+      userAgent: req.headers['user-agent'] || 'unknown',
+    };
+    
+    return this.authService.verifyEmail(verifyEmailDto.email, verifyEmailDto.code, meta);
+  }
+
+  @Throttle({ default: THROTTLER_CONFIG.AUTH })
+  @Post('resend-verification')
+  async resendVerification(@Body() resendVerificationDto: ResendVerificationDto, @Req() req: Request) {
+    this.customLogger.log(
+      `Resend verification attempt for: ${resendVerificationDto.email}`,
+      'AuthController',
+    );
+    const meta = {
+      ip: req.ip || 'unknown',
+      userAgent: req.headers['user-agent'] || 'unknown',
+    };
+    
+    return this.authService.resendVerificationEmail(resendVerificationDto.email, meta);
   }
 
   // ==========================================

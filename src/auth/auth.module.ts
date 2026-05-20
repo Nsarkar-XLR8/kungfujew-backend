@@ -8,6 +8,7 @@ import { MongooseHelper } from './services/mongoose-helper.service';
 import { ActivityLogService } from '../common/services/activity-log.service';
 import { EmailService } from '../common/services/email.service';
 import { RedisService } from '../common/services/redis.service';
+import { CryptoService } from '../common/services/crypto.service';
 import { QueueModule } from '../common/modules';
 import { DatabaseModule } from '../database/database.module';
 import {
@@ -44,6 +45,7 @@ import {
     EmailService,
     RedisService,
     MongooseHelper,
+    CryptoService,
   ],
   exports: [AuthUtilsService, GoogleOAuthService, AuthService],
 })

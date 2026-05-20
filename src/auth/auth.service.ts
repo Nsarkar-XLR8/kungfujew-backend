@@ -11,7 +11,7 @@ import { RedisService } from '../common/services/redis.service';
 import { EmailQueueService } from '../common/queues/email/email.queue';
 import { CustomLoggerService } from '../common/services/custom-logger.service';
 import AppError from '../common/errors/app.error';
-import * as bcrypt from 'bcryptjs';
+import * as argon2 from 'argon2';
 import config from '../common/config/app.config';
 import {
   AuthUser,
@@ -62,6 +62,12 @@ export class AuthService {
       'AuthService',
     );
 
+    // Security Check: Prevent public registration as an admin
+    if (payload.role === 'admin') {
+      this.customLogger.warn(`Public admin registration blocked for: ${email}`, 'AuthService');
+      throw AppError.forbidden('Cannot register as an administrator publicly.');
+    }
+
     const { LOGIN_MAX_ATTEMPTS, LOGIN_WINDOW_MS } = AUTH_CONFIG.RATE_LIMIT;
 
     // Check rate limiting for email, IP, and user agent
@@ -95,8 +101,7 @@ export class AuthService {
     }
 
     // Hash password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await argon2.hash(password);
 
     // Create user with auth security in a transaction
     const session = await this.connection.startSession();
@@ -431,14 +436,14 @@ export class AuthService {
     );
 
     // CRITICAL: Timing attack prevention
-    // Always run bcrypt.compare even if user doesn't exist
+    // Always run argon2.verify even if user doesn't exist
     // This ensures consistent response time regardless of user existence
     const fakePasswordHash =
-      '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.G4.4.G4.G4.G4.G';
+      '$argon2id$v=19$m=65536,t=3,p=4$Jv/w2U0+5z9jVqE3R8w6RQ$7Z4wV1a4Z7wV1a4Z7wV1a4Z7wV1a4Z7wV1a4Z7wV1a4';
 
     if (!user) {
-      // Run fake bcrypt to prevent timing attacks (~200ms)
-      await bcrypt.compare(password, fakePasswordHash);
+      // Run fake argon2 to prevent timing attacks (~200ms)
+      await argon2.verify(fakePasswordHash, password).catch(() => {});
 
       // Log failed attempt (fire-and-forget)
       void this.logLoginAttempt({
@@ -478,8 +483,8 @@ export class AuthService {
     }
 
     if (user.status === 'DELETED' || user.status === 'INACTIVE') {
-      // Run bcrypt to maintain consistent timing
-      await bcrypt.compare(password, user.password);
+      // Run argon2 to maintain consistent timing
+      await argon2.verify(user.password, password).catch(() => {});
       throw invalidCredentialsError;
     }
 
@@ -502,8 +507,8 @@ export class AuthService {
       );
     }
 
-    // Verify password (bcrypt uses constant-time comparison internally)
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Verify password (argon2 uses constant-time comparison internally)
+    const isPasswordValid = await argon2.verify(user.password, password).catch(() => false);
 
     if (!isPasswordValid) {
       await this.handleFailedLoginAttempt(
@@ -1079,7 +1084,7 @@ export class AuthService {
     }
 
     // Verify old password
-    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    const isOldPasswordValid = await argon2.verify(user.password, oldPassword).catch(() => false);
 
     if (!isOldPasswordValid) {
       this.customLogger.warn(
@@ -1095,7 +1100,7 @@ export class AuthService {
     }
 
     // Check if new password is same as old password
-    const isSameAsOld = await bcrypt.compare(newPassword, user.password);
+    const isSameAsOld = await argon2.verify(user.password, newPassword).catch(() => false);
     if (isSameAsOld) {
       throw AppError.badRequest(
         'New password must be different from current password',
@@ -1103,8 +1108,7 @@ export class AuthService {
     }
 
     // Hash new password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    const hashedPassword = await argon2.hash(newPassword);
 
     // Update password in transaction
     const session = await this.connection.startSession();
@@ -1396,8 +1400,7 @@ export class AuthService {
     }
 
     // Hash new password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    const hashedPassword = await argon2.hash(newPassword);
 
     // Update password in transaction
     const session = await this.connection.startSession();
