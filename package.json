@@ -1,5 +1,5 @@
 {
-  "name": "Kire1980",
+  "name": "Kungfujew-backend",
   "version": "0.0.1",
   "description": "",
   "author": "",
@@ -102,8 +102,7 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "moduleNameMapper": {
-      "^src/(.*)$": "<rootDir>/$1",
-      "^generated/prisma/client$": "<rootDir>/../generated/prisma/client.js"
+      "^src/(.*)$": "<rootDir>/$1"
     }
   }
 }
