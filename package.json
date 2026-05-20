@@ -1,5 +1,5 @@
 {
-  "name": "Kungfujew-backend",
+  "name": "kungfujew-backend",
   "version": "0.0.1",
   "description": "",
   "author": "",
@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@nest-lab/throttler-storage-redis": "^1.1.0",
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
@@ -32,6 +33,7 @@
     "@nestjs/swagger": "^11.2.5",
     "@nestjs/throttler": "^6.5.0",
     "@types/jsonwebtoken": "^9.0.10",
+    "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "bullmq": "^5.66.5",
     "class-transformer": "^0.5.1",

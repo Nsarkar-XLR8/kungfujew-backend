@@ -8,11 +8,7 @@ export function setupSwagger(app: INestApplication): void {
       'Production-ready NestJS API with MongoDB, Authentication, Logging, Monitoring, and more.',
     )
     .setVersion('1.0.0')
-    .setContact(
-      'API Support',
-      '',
-      '',
-    )
+    .setContact('API Support', '', '')
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')
     // Add JWT Bearer authentication globally
     .addBearerAuth(
