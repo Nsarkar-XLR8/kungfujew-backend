@@ -22,21 +22,22 @@ import {
 } from '../common/decorators';
 import { User } from './entities/user.entity';
 import { AuthGuard } from '../common/guards/auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../auth/interfaces/auth.interface';
 import { Types } from 'mongoose';
 
 @ApiTags('users')
 @Controller('user')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RolesGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiArrayResponseDecorator(200, 'Users retrieved successfully', User)
+  @Roles(UserRole.ADMIN)
   @Get()
-  findAll(@Request() req: { user: { role: string } }) {
-    if (req.user.role !== 'admin') {
-      throw new ForbiddenException('Only admin can access all users');
-    }
+  findAll() {
     return this.userService.findAll();
   }
 
