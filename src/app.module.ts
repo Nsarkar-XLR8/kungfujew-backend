@@ -4,13 +4,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
-import { BusinessModule } from './business/business.module';
-import { ServiceModule } from './service/service.module';
-import { ReviewModule } from './review/review.module';
-import { StaffModule } from './staff/staff.module';
-import { BookingModule } from './booking/booking.module';
-import { WishlistModule } from './wishlist/wishlist.module';
-import { AdminModule } from './admin/admin.module';
 import { ContactModule } from './contact/contact.module';
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './common/modules/redis.module';
@@ -19,6 +12,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { WinstonModule } from 'nest-winston';
 import { winstonConfig } from './common/config/winston.config';
 import { LoggerModule } from './common/modules/logger.module';
+import { CustomerModule } from './customer/customer.module';
 
 const isRateLimitEnabled = process.env.NODE_ENV !== 'development';
 
@@ -44,14 +38,8 @@ const isRateLimitEnabled = process.env.NODE_ENV !== 'development';
     // BlogModule,
     AuthModule,
     UserModule,
-    BusinessModule,
-    ServiceModule,
-    ReviewModule,
-    StaffModule,
-    BookingModule,
-    WishlistModule,
-    AdminModule,
     ContactModule,
+    CustomerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
