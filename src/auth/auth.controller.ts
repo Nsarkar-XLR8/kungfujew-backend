@@ -41,7 +41,7 @@ export class AuthController {
 
   // Strict rate limit for registration: 5 requests per 15 minutes
   @Throttle({ default: THROTTLER_CONFIG.AUTH })
-  @Post()
+  @Post('register')
   async create(@Body() payload: CreateAuthDto, @Req() req: Request) {
     this.customLogger.log(
       `Registration attempt for email: ${payload.email}`,
@@ -65,7 +65,7 @@ export class AuthController {
 
     return {
       success: true,
-      message: 'Registration and login successful',
+      message: 'Registration successful. Please verify your email to login.',
       data: result,
     };
   }
@@ -382,7 +382,7 @@ export class AuthController {
     return {
       success: true,
       message: 'Login successful',
-      data: result,
+      ...result,
     };
   }
 
@@ -416,7 +416,7 @@ export class AuthController {
     return {
       success: true,
       message: 'Token refreshed successfully',
-      data: result,
+      ...result,
     };
   }
 

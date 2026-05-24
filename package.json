@@ -32,6 +32,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/swagger": "^11.2.5",
     "@nestjs/throttler": "^6.5.0",
+    "@scalar/nestjs-api-reference": "^1.1.19",
     "@types/jsonwebtoken": "^9.0.10",
     "argon2": "^0.44.0",
     "axios": "^1.16.1",

@@ -70,3 +70,16 @@ export interface ILoginResponse {
   };
   expiresIn: number;
 }
+
+/**
+ * Registration response structure
+ */
+export interface IRegistrationResponse {
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    role: string;
+    verified: boolean;
+  };
+}

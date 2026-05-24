@@ -6,7 +6,7 @@ export const AUTH_CONFIG = {
   // Password Configuration
   PASSWORD_MIN_LENGTH: 8,
   PASSWORD_REQUIREMENTS: {
-    UPPERCASE: true,
+    UPPERCASE: false,
     LOWERCASE: true,
     NUMBERS: true,
     SPECIAL_CHARS: true,

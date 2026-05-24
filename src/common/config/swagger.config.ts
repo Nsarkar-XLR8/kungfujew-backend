@@ -1,5 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { apiReference } from '@scalar/nestjs-api-reference';
 
 export function setupSwagger(app: INestApplication): void {
   const config = new DocumentBuilder()
@@ -53,4 +54,19 @@ export function setupSwagger(app: INestApplication): void {
       operationsSorter: 'alpha', // Sort operations alphabetically
     },
   });
+
+  // Setup Scalar API Reference
+  app.use(
+    '/reference',
+    apiReference({
+      spec: {
+        content: document,
+      },
+      theme: 'deepSpace',
+      layout: 'modern',
+      metaData: {
+        title: 'KungFuJew API Reference',
+      },
+    }),
+  );
 }

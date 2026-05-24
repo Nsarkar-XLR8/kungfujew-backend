@@ -21,6 +21,7 @@ import {
 } from '../database/schemas';
 import {
   ILoginResponse,
+  IRegistrationResponse,
   IStoredRefreshToken,
   UserRole,
 } from './interfaces/auth.interface';
@@ -49,10 +50,16 @@ export class AuthService {
     private readonly connection: Connection,
   ) {}
 
+  private getEmailQuery(email: string) {
+    // Escape special regex characters in the email, then do case-insensitive match
+    const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return { email: { $regex: new RegExp(`^${escaped}$`, 'i') } };
+  }
+
   async create(
     payload: CreateAuthDto,
     meta: { ip: string; userAgent: string; device?: string },
-  ): Promise<ILoginResponse> {
+  ): Promise<IRegistrationResponse> {
     const { email, password } = payload;
     const fullName = payload.fullName ?? payload.username;
     const { ip, userAgent, device } = meta;
@@ -90,7 +97,7 @@ export class AuthService {
     }
 
     // Check if user already exists with email
-    const existingUser = await this.authUserModel.findOne({ email });
+    const existingUser = await this.authUserModel.findOne(this.getEmailQuery(email));
 
     if (existingUser) {
       this.customLogger.warn(
@@ -116,7 +123,7 @@ export class AuthService {
             fullName,
             password: hashedPassword,
             role: payload.role || 'customer',
-            verified: true,
+            verified: false,
             status: 'ACTIVE',
             provider: 'local',
           },
@@ -156,21 +163,57 @@ export class AuthService {
 
       await session.commitTransaction();
 
-      // Queue welcome email for async processing
+      // Queue verification email
       try {
-        await this.emailQueueService.sendWelcomeEmail(email, fullName, userId);
+        const verificationCode = this.authUtilsService.generateVerificationCode();
+        const { VERIFICATION } = AUTH_CONFIG.TOKEN_EXPIRY;
+        const expiresAt = new Date(
+          Date.now() + this.parseExpiryToSeconds(VERIFICATION) * 1000,
+        );
+
+        // Store verification code in Redis
+        const verificationKey = `${config.redis_cache_key_prefix}:${AUTH_CONFIG.CACHE_PREFIXES.VERIFICATION_TOKEN}:${email}`;
+        const ttlSeconds = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+
+        await this.redisService.set(
+          verificationKey,
+          {
+            code: verificationCode,
+            userId: userId,
+            email: email,
+            expiresAt: expiresAt.toISOString(),
+          },
+          ttlSeconds,
+        );
+
+        // Create email history record
+        const emailDocs = await this.emailHistoryModel.create([{
+          authId: userId,
+          emailTo: email,
+          emailType: 'verification',
+          subject: 'Verify your email address',
+          messageId: `verify-init-${userId}-${Date.now()}`,
+          emailStatus: 'pending',
+          ipAddress: ip,
+          userAgent: userAgent,
+        }], { session: null }); // Use null or wait until after transaction
+
+        await this.authUserModel.findByIdAndUpdate(userId, {
+          $push: { emailHistory: { $each: emailDocs.map(d => d._id), $slice: -50 } }
+        }, { session: null });
+
+        await this.emailQueueService.sendVerificationEmail(email, fullName, verificationCode, userId);
         this.customLogger.log(
-          `User registered successfully: ${email}, welcome email queued`,
+          `User registered successfully: ${email}, verification email queued`,
           'AuthService',
         );
       } catch (error) {
         this.customLogger.error(
-          `Failed to queue welcome email for ${email}`,
+          `Failed to queue verification email for ${email}`,
           error instanceof Error ? error.stack : undefined,
           'AuthService',
         );
-        console.error('Failed to queue welcome email:', error);
-        // Don't throw error, user is created successfully
+        console.error('Failed to queue verification email:', error);
       }
     } catch (error) {
       await session.abortTransaction();
@@ -179,8 +222,20 @@ export class AuthService {
       await session.endSession();
     }
 
-    // Auto-login after successful registration
-    return this.login({ email, password }, meta);
+    const createdUser = await this.authUserModel.findOne(this.getEmailQuery(email)).lean();
+    if (!createdUser) {
+        throw AppError.internalServerError('Failed to retrieve user after creation');
+    }
+
+    return {
+      user: {
+        id: createdUser._id.toString(),
+        email: createdUser.email,
+        fullName: createdUser.fullName,
+        role: createdUser.role,
+        verified: createdUser.verified,
+      }
+    };
   }
 
   /**
@@ -227,7 +282,7 @@ export class AuthService {
     }
 
     // Find user
-    const user = await this.authUserModel.findOne({ email });
+    const user = await this.authUserModel.findOne(this.getEmailQuery(email));
 
     if (!user) {
       throw AppError.notFound('User not found');
@@ -322,7 +377,7 @@ export class AuthService {
     );
 
     // Find user
-    const user = await this.authUserModel.findOne({ email });
+    const user = await this.authUserModel.findOne(this.getEmailQuery(email));
 
     if (!user) {
       throw AppError.notFound('User not found');
@@ -354,7 +409,7 @@ export class AuthService {
     );
 
     // Create new email history record
-    await this.emailHistoryModel.create({
+    const emailDoc = await this.emailHistoryModel.create({
       authId: user._id.toString(),
       emailTo: email,
       emailType: 'verification',
@@ -363,6 +418,10 @@ export class AuthService {
       emailStatus: 'pending',
       ipAddress: ip,
       userAgent: userAgent,
+    });
+
+    await this.authUserModel.findByIdAndUpdate(user._id, {
+      $push: { emailHistory: { $each: [emailDoc._id], $slice: -50 } }
     });
 
     // Queue verification email for async processing
@@ -420,7 +479,7 @@ export class AuthService {
     ]);
 
     // Fetch user with security data in single optimized query
-    const user = await this.authUserModel.findOne({ email }).lean();
+    const user = await this.authUserModel.findOne(this.getEmailQuery(email)).lean();
 
     // Also get security data separately
     let security = null;
@@ -486,6 +545,12 @@ export class AuthService {
       // Run argon2 to maintain consistent timing
       await argon2.verify(user.password, password).catch(() => {});
       throw invalidCredentialsError;
+    }
+
+    if (!user.verified) {
+      // Run argon2 to maintain consistent timing
+      await argon2.verify(user.password, password).catch(() => {});
+      throw AppError.forbidden('Please verify your email before logging in.');
     }
 
     // Check account lockout
@@ -998,7 +1063,12 @@ export class AuthService {
         attemptNumber: data.attemptNumber || 1,
         isSuspicious: data.isSuspicious || false,
       })
-      .then(() => undefined)
+      .then(async (doc) => {
+        await this.authUserModel.findByIdAndUpdate(data.authId, {
+          $push: { loginHistory: { $each: [doc._id], $slice: -50 } }
+        }).catch(err => console.error('Failed to update user login history:', err));
+        return undefined;
+      })
       .catch((error) => {
         console.error('Failed to log login attempt:', error);
       });
@@ -1185,7 +1255,7 @@ export class AuthService {
     );
 
     // Find user by email
-    const user = await this.authUserModel.findOne({ email });
+    const user = await this.authUserModel.findOne(this.getEmailQuery(email));
 
     if (!user) {
       // Don't reveal if user exists or not
@@ -1229,7 +1299,7 @@ export class AuthService {
     );
 
     // Create email history record
-    await this.emailHistoryModel.create({
+    const emailDoc = await this.emailHistoryModel.create({
       authId: user._id.toString(),
       emailTo: email,
       emailType: 'password_reset',
@@ -1238,6 +1308,10 @@ export class AuthService {
       emailStatus: 'pending',
       ipAddress: ip,
       userAgent: userAgent,
+    });
+
+    await this.authUserModel.findByIdAndUpdate(user._id, {
+      $push: { emailHistory: { $each: [emailDoc._id], $slice: -50 } }
     });
 
     // Send password reset email
