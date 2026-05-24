@@ -36,9 +36,18 @@ async function bootstrap() {
           contentSecurityPolicy: {
             directives: {
               defaultSrc: ["'self'"],
-              styleSrc: ["'self'", "'unsafe-inline'"],
               imgSrc: ["'self'", 'data:', 'https:'],
-              scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Required for Swagger UI
+              scriptSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                "'unsafe-eval'",
+                'https://cdn.jsdelivr.net',
+              ], // Required for Swagger UI and Scalar
+              styleSrc: [
+                "'self'",
+                "'unsafe-inline'",
+                'https://fonts.googleapis.com',
+              ],
             },
           },
           frameguard: { action: 'deny' as const },
@@ -84,6 +93,7 @@ async function bootstrap() {
   if (!isProduction || enableSwagger) {
     setupSwagger(app);
     nestLogger.log('Swagger documentation available at /docs', 'Bootstrap');
+    nestLogger.log('Scalar API Reference available at /reference', 'Bootstrap');
   } else {
     nestLogger.log('Swagger documentation disabled in production', 'Bootstrap');
   }
