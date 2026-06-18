@@ -8,8 +8,9 @@ import { EmailService } from '../../services/email.service';
 import { EmailHistory } from '../../../database/schemas';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
+import { EMAIL_QUEUE } from '../queue.constants';
 
-@Processor('email')
+@Processor(EMAIL_QUEUE)
 export class EmailProcessor extends WorkerHost {
   constructor(
     @Inject(WINSTON_MODULE_PROVIDER)

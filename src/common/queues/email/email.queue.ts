@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
+import { EMAIL_QUEUE } from '../queue.constants';
 
 export interface VerificationEmailJob {
   type: 'verification';
@@ -40,7 +41,7 @@ export type EmailJob =
 
 @Injectable()
 export class EmailQueueService {
-  constructor(@InjectQueue('email') private emailQueue: Queue) {}
+  constructor(@InjectQueue(EMAIL_QUEUE) private emailQueue: Queue) {}
 
   async sendVerificationEmail(
     email: string,
