@@ -10,7 +10,16 @@ import {
   ForbiddenException,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ContactService } from './contact.service';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { ContactQueryDto } from './dto/contact-query.dto';
@@ -25,6 +34,9 @@ export class ContactController {
 
   @Post()
   @ApiOperation({ summary: 'Submit a new contact inquiry (Public)' })
+  @ApiCreatedResponse({
+    description: 'Inquiry submitted and admin notification queued.',
+  })
   create(@Body() createContactDto: CreateContactDto) {
     return this.contactService.create(createContactDto);
   }
@@ -32,7 +44,9 @@ export class ContactController {
   @Get('all')
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'List all inquiries (Admin only)' })
+  @ApiBearerAuth('JWT-auth')
   @ApiPaginatedResponseDecorator(ContactInquiry)
+  @ApiForbiddenResponse({ description: 'Only admin can view inquiries.' })
   findAll(
     @Query() queryDto: ContactQueryDto,
     @Request() req: { user: { role: string } },
@@ -46,7 +60,20 @@ export class ContactController {
   @Get(':contactId')
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Get a single inquiry (Admin only)' })
-  @ApiParam({ name: 'contactId', description: 'The inquiry ID' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({
+    name: 'contactId',
+    description: 'MongoDB ID of the inquiry.',
+    example: '65f1c2a6e5b9a2d8a4f2c111',
+  })
+  @ApiOkResponse({
+    description: 'Inquiry details returned successfully.',
+    type: ContactInquiry,
+  })
+  @ApiForbiddenResponse({
+    description: 'Only admin can view inquiry details.',
+  })
+  @ApiNotFoundResponse({ description: 'Inquiry was not found.' })
   findOne(
     @Param('contactId') contactId: string,
     @Request() req: { user: { role: string } },
@@ -62,7 +89,15 @@ export class ContactController {
   @Delete(':contactId')
   @UseGuards(AuthGuard)
   @ApiOperation({ summary: 'Delete an inquiry (Admin only)' })
-  @ApiParam({ name: 'contactId', description: 'The inquiry ID' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiParam({
+    name: 'contactId',
+    description: 'MongoDB ID of the inquiry.',
+    example: '65f1c2a6e5b9a2d8a4f2c111',
+  })
+  @ApiOkResponse({ description: 'Inquiry deleted successfully.' })
+  @ApiForbiddenResponse({ description: 'Only admin can delete inquiries.' })
+  @ApiNotFoundResponse({ description: 'Inquiry was not found.' })
   remove(
     @Param('contactId') contactId: string,
     @Request() req: { user: { role: string } },

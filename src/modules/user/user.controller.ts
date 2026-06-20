@@ -11,7 +11,18 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { UserService } from './user.service';
@@ -28,28 +39,52 @@ import { UserRole } from '../auth/interfaces/auth.interface';
 import { Types } from 'mongoose';
 
 @ApiTags('users')
+@ApiBearerAuth('JWT-auth')
+@ApiUnauthorizedResponse({ description: 'Missing or invalid JWT token.' })
 @Controller('user')
 @UseGuards(AuthGuard, RolesGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @ApiOperation({ summary: 'Get all users (Admin only)' })
+  @ApiOperation({
+    summary: 'Get all users',
+    description: 'Admin-only endpoint that returns all user profiles.',
+  })
   @ApiArrayResponseDecorator(200, 'Users retrieved successfully', User)
+  @ApiForbiddenResponse({ description: 'Only admin users can list users.' })
   @Roles(UserRole.ADMIN)
   @Get()
   findAll() {
     return this.userService.findAll();
   }
 
-  @ApiOperation({ summary: 'Get my profile' })
+  @ApiOperation({
+    summary: 'Get my profile',
+    description:
+      'Returns the profile for the authenticated user attached to the JWT.',
+  })
   @ApiResponseDecorator(200, 'User retrieved successfully', User)
   @Get('me')
   findMe(@Request() req: { user: { userId: string } }) {
     return this.userService.findOne(req.user.userId);
   }
 
-  @ApiOperation({ summary: 'Get user by id (Admin or self)' })
+  @ApiOperation({
+    summary: 'Get user by ID',
+    description:
+      'Admins can fetch any profile. Non-admin users can only fetch their own profile.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'MongoDB user ID.',
+    example: '65f1c2a6e5b9a2d8a4f2c111',
+  })
   @ApiResponseDecorator(200, 'User retrieved successfully', User)
+  @ApiBadRequestResponse({ description: 'Invalid user ID format.' })
+  @ApiForbiddenResponse({
+    description: 'Authenticated user can only access their own profile.',
+  })
+  @ApiNotFoundResponse({ description: 'User was not found.' })
   @Get(':id')
   findOneById(
     @Param('id') id: string,
@@ -66,7 +101,11 @@ export class UserController {
     return this.userService.findOne(id);
   }
 
-  @ApiOperation({ summary: 'Update my profile (supports avatar image)' })
+  @ApiOperation({
+    summary: 'Update my profile',
+    description:
+      'Updates profile fields for the authenticated user and optionally uploads an avatar image.',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'User profile fields and optional avatar image file',
@@ -84,6 +123,9 @@ export class UserController {
     },
   })
   @ApiResponseDecorator(200, 'User updated successfully', User)
+  @ApiBadRequestResponse({
+    description: 'Invalid profile payload or non-image avatar upload.',
+  })
   @Patch('me')
   @UseInterceptors(
     FileInterceptor('avatar', {
@@ -111,7 +153,16 @@ export class UserController {
     );
   }
 
-  @ApiOperation({ summary: 'Update user by id (Admin or self)' })
+  @ApiOperation({
+    summary: 'Update user by ID',
+    description:
+      'Admins can update any profile. Non-admin users can only update their own profile.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'MongoDB user ID.',
+    example: '65f1c2a6e5b9a2d8a4f2c111',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'User profile fields and optional avatar image file',
@@ -129,6 +180,14 @@ export class UserController {
     },
   })
   @ApiResponseDecorator(200, 'User updated successfully', User)
+  @ApiBadRequestResponse({
+    description:
+      'Invalid user ID, invalid payload, or non-image avatar upload.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Authenticated user can only update their own profile.',
+  })
+  @ApiNotFoundResponse({ description: 'User was not found.' })
   @Patch(':id')
   @UseInterceptors(
     FileInterceptor('avatar', {
