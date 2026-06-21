@@ -2,13 +2,15 @@ import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { apiReference } from '@scalar/nestjs-api-reference';
 
-export function setupSwagger(app: INestApplication): void {
+export function setupSwagger(app: INestApplication, apiBaseUrl: string): void {
   const config = new DocumentBuilder()
     .setTitle('KungFuJew API')
     .setDescription(
       'Production-ready NestJS API with MongoDB, Authentication, Logging, Monitoring, and more.',
     )
     .setVersion('1.0.0')
+    .addServer(apiBaseUrl, 'Current API server')
+    .addServer('/', 'Same origin')
     .setContact('API Support', '', '')
     .setLicense('MIT', 'https://opensource.org/licenses/MIT')
     // Add JWT Bearer authentication globally
@@ -25,6 +27,12 @@ export function setupSwagger(app: INestApplication): void {
     )
     // Add common tags for organization
     .addTag('auth', 'Authentication and authorization endpoints')
+    .addTag('admin', 'Admin-only order operations and manual payment workflows')
+    .addTag(
+      'customer funnel',
+      'Public quote, checkout, and booking-timer endpoints',
+    )
+    .addTag('contact', 'Public contact form and admin inquiry management')
     .addTag('users', 'User management endpoints')
     .addTag('health', 'Health check endpoints')
     .addTag('metrics', 'Metrics and monitoring endpoints')
@@ -64,6 +72,7 @@ export function setupSwagger(app: INestApplication): void {
       },
       theme: 'deepSpace',
       layout: 'modern',
+      baseServerURL: apiBaseUrl,
       metaData: {
         title: 'KungFuJew API Reference',
       },
