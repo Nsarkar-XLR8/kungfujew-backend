@@ -36,6 +36,9 @@ export function setupSwagger(app: INestApplication, apiBaseUrl: string): void {
     .addTag('users', 'User management endpoints')
     .addTag('health', 'Health check endpoints')
     .addTag('metrics', 'Metrics and monitoring endpoints')
+    .addTag('super-dispatch', 'Super Dispatch load board posting and webhook events')
+    .addTag('tailwind-tms', 'Tailwind TMS (Envase) shipment creation and webhook events')
+    .addTag('quickbooks', 'QuickBooks OAuth2, payment capture, invoicing, and webhooks')
     .build();
 
   const document = SwaggerModule.createDocument(app, config, {

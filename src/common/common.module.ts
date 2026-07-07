@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ActivityLogService } from './services/activity-log.service';
 import { EmailService } from './services/email.service';
@@ -25,7 +25,7 @@ import {
       { name: AuthUser.name, schema: AuthUserSchema },
       { name: EmailHistory.name, schema: EmailHistorySchema },
     ]),
-    QueueModule,
+    forwardRef(() => QueueModule),
   ],
   providers: [
     ActivityLogService,
@@ -43,7 +43,6 @@ import {
     CloudinaryService,
     AuthGuard,
     MongooseModule,
-    QueueModule,
   ],
 })
 export class CommonModule {}

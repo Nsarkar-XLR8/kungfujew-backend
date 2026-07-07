@@ -1,5 +1,5 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import config from '../config/app.config';
 import { EmailService } from '../services/email.service';
@@ -15,6 +15,9 @@ import {
   CUSTOMER_QUOTATION_QUEUE,
   EMAIL_QUEUE,
 } from '../queues/queue.constants';
+import { SuperDispatchModule } from '../../modules/super-dispatch/super-dispatch.module';
+import { TailwindTmsModule } from '../../modules/tailwind-tms/tailwind-tms.module';
+import { CarrierModule } from '../../modules/carrier/carrier.module';
 
 @Global()
 @Module({
@@ -44,6 +47,9 @@ import {
     BullModule.registerQueue({
       name: CUSTOMER_QUOTATION_QUEUE,
     }),
+    forwardRef(() => SuperDispatchModule),
+    forwardRef(() => TailwindTmsModule),
+    forwardRef(() => CarrierModule),
   ],
   providers: [
     EmailQueueService,

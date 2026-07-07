@@ -15,3 +15,5 @@ export * from './staff-member.schema';
 export * from './booking.schema';
 export * from './wishlist.schema';
 export * from './contact-inquiry.schema';
+export * from './pricing-preset.schema';
+export * from './carrier-contact.schema';

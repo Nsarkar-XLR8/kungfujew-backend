@@ -25,6 +25,7 @@ import {
   PaymentSchema,
   Invoice,
   InvoiceSchema,
+  PricingPresetModel,
 } from './schemas';
 
 @Module({
@@ -54,6 +55,7 @@ import {
       { name: Subscription.name, schema: SubscriptionSchema },
       { name: Payment.name, schema: PaymentSchema },
       { name: Invoice.name, schema: InvoiceSchema },
+      PricingPresetModel,
     ]),
   ],
   providers: [MongooseService],

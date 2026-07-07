@@ -31,6 +31,10 @@ import {
 } from '../schemas/order.schema';
 import { AdminOrderQueueService } from '../../../common/queues/order/admin-order.queue';
 import { CUSTOMER_QUOTATION_QUEUE } from '../../../common/queues/queue.constants';
+import { SuperDispatchAuthService } from '../../super-dispatch/super-dispatch-auth.service';
+import { QuickBooksPaymentService } from '../../quickbooks/quickbooks-payment.service';
+import { PricingPresetService } from '../../admin/pricing-preset.service';
+import { EmailQueueService } from '../../../common/queues/email/email.queue';
 
 @Injectable()
 export class CustomerFunnelService implements OnModuleDestroy {
@@ -46,6 +50,10 @@ export class CustomerFunnelService implements OnModuleDestroy {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly adminOrderQueueService: AdminOrderQueueService,
+    private readonly superDispatchAuth: SuperDispatchAuthService,
+    private readonly quickBooksPayment: QuickBooksPaymentService,
+    private readonly pricingPreset: PricingPresetService,
+    private readonly emailQueue: EmailQueueService,
   ) {
     this.quotationQueueEvents = new QueueEvents(CUSTOMER_QUOTATION_QUEUE, {
       connection: {
@@ -125,22 +133,32 @@ export class CustomerFunnelService implements OnModuleDestroy {
       dto.vehicleType,
     );
 
-    // 2. Compute dynamic markup structures directly from Project Requirements
+    // 2. Compute dynamic markup structures from DB pricing presets
+    const [openMarkup, enclosedMarkup, nonRunningPremium, freight150, freight250, expeditePremium, casinoDiscount] =
+      await Promise.all([
+        this.pricingPreset.getValue('OPEN_MARKUP', 400),
+        this.pricingPreset.getValue('ENCLOSED_MARKUP', 500),
+        this.pricingPreset.getValue('NON_RUNNING_PREMIUM', 200),
+        this.pricingPreset.getValue('FREIGHT_150_LBS', 150),
+        this.pricingPreset.getValue('FREIGHT_250_LBS', 250),
+        this.pricingPreset.getValue('EXPEDITED_PREMIUM', 300),
+        this.pricingPreset.getValue('CASINO_DISCOUNT', 100),
+      ]);
+
     const transportMarkupFee =
-      dto.transportType === TransportType.OPEN ? 400.0 : 500.0;
+      dto.transportType === TransportType.OPEN ? openMarkup : enclosedMarkup;
     const conditionPremiumFee =
-      dto.condition === VehicleCondition.NON_RUNNING ? 200.0 : 0.0;
+      dto.condition === VehicleCondition.NON_RUNNING ? nonRunningPremium : 0.0;
 
     let freightSurchargeFee = 0.0;
     const weight = dto.inCarFreightWeight || 0;
-    if (weight > 100 && weight <= 150) freightSurchargeFee = 150.0;
-    if (weight > 150 && weight <= 250) freightSurchargeFee = 250.0;
+    if (weight > 100 && weight <= 150) freightSurchargeFee = freight150;
+    if (weight > 150 && weight <= 250) freightSurchargeFee = freight250;
 
     const timelinePremiumFee =
-      dto.timelineType === TimelineType.EXPEDITED ? 300.0 : 0.0;
+      dto.timelineType === TimelineType.EXPEDITED ? expeditePremium : 0.0;
 
-    // Automatic high-conversion drop rule
-    const casinoDiscountAmount = -100.0;
+    const casinoDiscountAmount = -Math.abs(casinoDiscount);
 
     // Calculate baseline net quote evaluation figures
     const subTotal =
@@ -205,17 +223,9 @@ export class CustomerFunnelService implements OnModuleDestroy {
     return {
       orderId,
       finalCalculatedPrice: subTotal,
+      instantDiscountApplied: casinoDiscountAmount,
       warningDisclaimer:
         'Do not block windows. Personal property in the vehicle is not covered by insurance.',
-      pricingBreakdown: {
-        baseMarketRate: baseApiPrice,
-        carrierConfigurationMarkup: transportMarkupFee,
-        operationalConditionFee: conditionPremiumFee,
-        internalCargoWeightFee: freightSurchargeFee,
-        timelineUrgencyFee: timelinePremiumFee,
-        instantCasinoDiscount: casinoDiscountAmount,
-        netSubTotal: subTotal,
-      },
       uxTriggers: {
         launchWinningDiscountVideoModal: true,
         countdownDurationSeconds: this.CASINO_TIMER_TTL,
@@ -285,36 +295,47 @@ export class CustomerFunnelService implements OnModuleDestroy {
       order.balanceAmountRemaining = 0.0;
     }
 
-    // 3. Inject QuickBooks Merchant Surcharges correctly matching processed amounts
-    if (dto.paymentMethod === PaymentMethod.QUICKBOOKS) {
-      const surchargeRate = 0.035;
-      const processingFeeQuickBooks = baseChargeTarget * surchargeRate;
+    // 3. Apply QuickBooks processing surcharge
+    const surchargeRate = dto.paymentMethod === PaymentMethod.QUICKBOOKS ? 0.035 : 0;
+    const processingFeeQuickBooks = baseChargeTarget * surchargeRate;
+    order.processingFeeQuickBooks = processingFeeQuickBooks;
+    order.grandTotalPrice = order.subTotal + processingFeeQuickBooks;
+    const totalToCharge = baseChargeTarget + processingFeeQuickBooks;
 
-      order.processingFeeQuickBooks = processingFeeQuickBooks;
-      // Grand total reflects actual cost adjustments comprehensively
-      order.grandTotalPrice = order.subTotal + processingFeeQuickBooks;
-      baseChargeTarget += processingFeeQuickBooks;
-    } else {
-      order.processingFeeQuickBooks = 0.0;
-      order.grandTotalPrice = order.subTotal;
-    }
-
-    // 4. Update lifecycle pipelines state machines
+    // 4. Process real QuickBooks payment or mark as pending manual
     if (dto.paymentMethod === PaymentMethod.QUICKBOOKS) {
-      order.status = OrderStatus.BOOKED;
-      order.isDepositPaid = true;
-      if (dto.paymentOption === PaymentOption.FULL_UPFRONT) {
-        order.isBalancePaid = true;
-        order.isBalanceAlertActive = false;
+      const chargeResult = await this.quickBooksPayment.charge(
+        totalToCharge,
+        'USD',
+        `Vehicle transport: ${order.orderId}`,
+        order.customerEmail,
+      );
+
+      if (!chargeResult.success) {
+        order.status = OrderStatus.PENDING_PAYMENT;
+        order.isDepositPaid = false;
+        order.paymentDetails = {
+          transactionChannel: 'QuickBooks API Gateway',
+          error: chargeResult.error,
+          attemptedAt: new Date(),
+        };
       } else {
-        order.isBalancePaid = false;
-        order.isBalanceAlertActive = true; // Alerts system targeting outstanding 70% invoices
+        order.status = OrderStatus.BOOKED;
+        order.isDepositPaid = true;
+        if (dto.paymentOption === PaymentOption.FULL_UPFRONT) {
+          order.isBalancePaid = true;
+          order.isBalanceAlertActive = false;
+        } else {
+          order.isBalancePaid = false;
+          order.isBalanceAlertActive = true;
+        }
+        order.paymentDetails = {
+          transactionChannel: 'QuickBooks API Gateway',
+          transactionId: chargeResult.transactionId,
+          amountCaptured: chargeResult.amountCharged,
+          timestamp: new Date(),
+        };
       }
-      order.paymentDetails = {
-        transactionChannel: 'QuickBooks API Gateway',
-        amountCaptured: baseChargeTarget,
-        timestamp: new Date(),
-      };
     } else {
       order.status = OrderStatus.PENDING_PAYMENT;
       order.isDepositPaid = false;
@@ -322,7 +343,7 @@ export class CustomerFunnelService implements OnModuleDestroy {
       order.isBalanceAlertActive = false;
       order.paymentDetails = {
         transactionChannel: `Manual ${dto.paymentMethod} Route`,
-        amountAwaitingClearance: baseChargeTarget,
+        amountAwaitingClearance: totalToCharge,
         instructionsRendered: true,
       };
     }
@@ -332,14 +353,33 @@ export class CustomerFunnelService implements OnModuleDestroy {
     if (order.status === OrderStatus.BOOKED) {
       await this.redis.del(`timer:casino:${dto.orderId}`);
       await this.adminOrderQueueService.enqueueOrderBooked(order.orderId);
+      if (order.customerEmail) {
+        await this.emailQueue.sendBookingConfirmation(
+          order.customerEmail,
+          order.customerName || 'Valued Customer',
+          order.orderId,
+          {
+            vehicleYear: order.vehicleYear || 0,
+            vehicleMake: order.vehicleMake || '',
+            vehicleModel: order.vehicleModel || '',
+            pickupLocation: order.pickupLocation || '',
+            deliveryLocation: order.deliveryLocation || '',
+            transportType: order.transportType || 'open',
+            totalPrice: order.grandTotalPrice || 0,
+            depositPaid: order.depositAmountCalculated || 0,
+            balanceDue: order.balanceAmountRemaining || 0,
+          },
+        );
+      }
     }
 
     return {
       orderId: order.orderId,
       currentLifecycleStatus: order.status,
-      checkoutAmountProcessed: baseChargeTarget,
+      checkoutAmountProcessed: totalToCharge,
+      paymentSuccessful: order.isDepositPaid,
       billingSchedules: {
-        immediateChargeBasis: baseChargeTarget,
+        immediateChargeBasis: totalToCharge,
         outstandingDeferredBalance: order.balanceAmountRemaining,
         quickBooksSurchargeInjected: order.processingFeeQuickBooks,
         absoluteGrandTotal: order.grandTotalPrice,
@@ -395,7 +435,8 @@ export class CustomerFunnelService implements OnModuleDestroy {
   }
 
   /**
-   * ACTUAL Super Dispatch Pricing API Implementation Interfacer
+   * REAL Super Dispatch Pricing API Implementation via OAuth2 Client Credentials
+   * Uses the token from SuperDispatchAuthService and the v1/market-rates endpoint.
    */
   private async querySuperDispatchPricingInsights(
     pickup: string,
@@ -403,20 +444,14 @@ export class CustomerFunnelService implements OnModuleDestroy {
     type: VehicleType,
   ): Promise<number> {
     const apiUrl =
-      this.configService.get<string>('SUPER_DISPATCH_API_URL') ||
-      'https://api.shipper.superdispatch.com/v1/pricing-insights';
-    const apiKey = this.configService.get<string>('SUPER_DISPATCH_API_KEY');
-
-    if (!apiKey) {
-      throw new Error(
-        'Missing Super Dispatch API credential configuration context.',
-      );
-    }
+      this.configService.get<string>('SUPER_DISPATCH_BASE_URL') ||
+      'https://api.shipper.superdispatch.com';
+    const token = await this.superDispatchAuth.getAccessToken();
 
     const response = await firstValueFrom(
-      this.httpService.get<any>(apiUrl, {
+      this.httpService.get<any>(`${apiUrl}/v1/market-rates`, {
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         params: { origin: pickup, destination: delivery, vehicle_type: type },
