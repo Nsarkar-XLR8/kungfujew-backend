@@ -175,4 +175,144 @@ export class EmailService {
       html,
     });
   }
+
+  async sendBookingConfirmation(
+    email: string,
+    customerName: string,
+    orderId: string,
+    details: {
+      vehicleYear: number;
+      vehicleMake: string;
+      vehicleModel: string;
+      pickupLocation: string;
+      deliveryLocation: string;
+      transportType: string;
+      totalPrice: number;
+      depositPaid: number;
+      balanceDue: number;
+    },
+  ): Promise<void> {
+    const html = this.getEmailTemplate('booking-confirmation.html', {
+      customerName,
+      orderId,
+      vehicleYear: String(details.vehicleYear),
+      vehicleMake: details.vehicleMake,
+      vehicleModel: details.vehicleModel,
+      pickupLocation: details.pickupLocation,
+      deliveryLocation: details.deliveryLocation,
+      transportType: details.transportType,
+      totalPrice: details.totalPrice.toFixed(2),
+      depositPaid: details.depositPaid.toFixed(2),
+      balanceDue: details.balanceDue.toFixed(2),
+      year: new Date().getFullYear().toString(),
+    });
+
+    await this.sendEmail({
+      to: email,
+      subject: `Booking Confirmed - Order #${orderId}`,
+      html,
+    });
+  }
+
+  async sendBalanceReminder(
+    email: string,
+    customerName: string,
+    orderId: string,
+    details: {
+      balanceDue: number;
+      vehicleYear: number;
+      vehicleMake: string;
+      vehicleModel: string;
+      orderStatus: string;
+      paymentLink: string;
+    },
+  ): Promise<void> {
+    const html = this.getEmailTemplate('balance-reminder.html', {
+      customerName,
+      orderId,
+      balanceDue: details.balanceDue.toFixed(2),
+      vehicleYear: String(details.vehicleYear),
+      vehicleMake: details.vehicleMake,
+      vehicleModel: details.vehicleModel,
+      orderStatus: details.orderStatus,
+      paymentLink: details.paymentLink,
+      year: new Date().getFullYear().toString(),
+    });
+
+    await this.sendEmail({
+      to: email,
+      subject: `Payment Reminder - Balance Due $${details.balanceDue.toFixed(2)} - Order #${orderId}`,
+      html,
+    });
+  }
+
+  async sendDeliveryConfirmation(
+    email: string,
+    customerName: string,
+    orderId: string,
+    details: {
+      pickupLocation: string;
+      deliveryLocation: string;
+      vehicleYear: number;
+      vehicleMake: string;
+      vehicleModel: string;
+      balanceDue: number;
+      paidInFull: boolean;
+    },
+  ): Promise<void> {
+    const html = this.getEmailTemplate('delivery-confirmation.html', {
+      customerName,
+      orderId,
+      pickupLocation: details.pickupLocation,
+      deliveryLocation: details.deliveryLocation,
+      vehicleYear: String(details.vehicleYear),
+      vehicleMake: details.vehicleMake,
+      vehicleModel: details.vehicleModel,
+      balanceDue: details.balanceDue.toFixed(2),
+      paidInFull: details.paidInFull ? 'Yes' : 'No',
+      year: new Date().getFullYear().toString(),
+    });
+
+    await this.sendEmail({
+      to: email,
+      subject: `Your Vehicle Has Been Delivered - Order #${orderId}`,
+      html,
+    });
+  }
+
+  async sendCarrierJobAlert(
+    email: string,
+    companyName: string,
+    orderId: string,
+    orderDetails: {
+      customerName: string;
+      pickupLocation: string;
+      deliveryLocation: string;
+      vehicleYear: number;
+      vehicleMake: string;
+      vehicleModel: string;
+      transportType: string;
+      payout: number;
+    },
+  ): Promise<void> {
+    const html = this.getEmailTemplate('carrier-alert.html', {
+      companyName,
+      orderId,
+      customerName: orderDetails.customerName,
+      pickupLocation: orderDetails.pickupLocation,
+      deliveryLocation: orderDetails.deliveryLocation,
+      vehicleYear: String(orderDetails.vehicleYear),
+      vehicleMake: orderDetails.vehicleMake,
+      vehicleModel: orderDetails.vehicleModel,
+      transportType: orderDetails.transportType,
+      payout: orderDetails.payout.toFixed(2),
+      year: new Date().getFullYear().toString(),
+    });
+
+    await this.sendEmail({
+      to: email,
+      subject: `New Job Available: ${orderDetails.vehicleYear} ${orderDetails.vehicleMake} ${orderDetails.vehicleModel} - $${orderDetails.payout.toFixed(2)}`,
+      html,
+    });
+  }
 }

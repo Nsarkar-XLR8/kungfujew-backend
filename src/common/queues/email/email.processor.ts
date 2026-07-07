@@ -43,6 +43,18 @@ export class EmailProcessor extends WorkerHost {
         case 'admin_contact':
           await this.handleAdminContactEmail(job);
           break;
+        case 'booking_confirmation':
+          await this.handleBookingConfirmation(job);
+          break;
+        case 'balance_reminder':
+          await this.handleBalanceReminder(job);
+          break;
+        case 'carrier_job_alert':
+          await this.handleCarrierJobAlert(job);
+          break;
+        case 'delivery_confirmation':
+          await this.handleDeliveryConfirmation(job);
+          break;
         default:
           this.logger.warn(
             `Unknown email job type: ${String((job.data as { type?: string }).type || 'undefined')}`,
@@ -188,6 +200,118 @@ export class EmailProcessor extends WorkerHost {
       );
 
       throw error; // Re-throw to trigger retry
+    }
+  }
+
+  private async handleBookingConfirmation(job: Job<EmailJob>): Promise<void> {
+    const data = job.data as Extract<EmailJob, { type: 'booking_confirmation' }>;
+    const { email, customerName, orderId, vehicleYear, vehicleMake, vehicleModel, pickupLocation, deliveryLocation, transportType, totalPrice, depositPaid, balanceDue } = data;
+
+    try {
+      await this.emailService.sendBookingConfirmation(
+        email,
+        customerName,
+        orderId,
+        { vehicleYear, vehicleMake, vehicleModel, pickupLocation, deliveryLocation, transportType, totalPrice, depositPaid, balanceDue },
+      );
+      this.logger.info(`Booking confirmation email sent to ${email} for order ${orderId}`, {
+        context: 'EmailProcessor',
+        jobId: job.id,
+        email,
+        orderId,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send booking confirmation to ${email} for order ${orderId}`, {
+        context: 'EmailProcessor',
+        email,
+        orderId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  private async handleBalanceReminder(job: Job<EmailJob>): Promise<void> {
+    const data = job.data as Extract<EmailJob, { type: 'balance_reminder' }>;
+    const { email, customerName, orderId, balanceDue, vehicleYear, vehicleMake, vehicleModel, orderStatus, paymentLink } = data;
+
+    try {
+      await this.emailService.sendBalanceReminder(
+        email,
+        customerName,
+        orderId,
+        { balanceDue, vehicleYear, vehicleMake, vehicleModel, orderStatus, paymentLink },
+      );
+      this.logger.info(`Balance reminder email sent to ${email} for order ${orderId}`, {
+        context: 'EmailProcessor',
+        jobId: job.id,
+        email,
+        orderId,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send balance reminder to ${email} for order ${orderId}`, {
+        context: 'EmailProcessor',
+        email,
+        orderId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  private async handleDeliveryConfirmation(job: Job<EmailJob>): Promise<void> {
+    const data = job.data as Extract<EmailJob, { type: 'delivery_confirmation' }>;
+    const { email, customerName, orderId, pickupLocation, deliveryLocation, vehicleYear, vehicleMake, vehicleModel, balanceDue, paidInFull } = data;
+
+    try {
+      await this.emailService.sendDeliveryConfirmation(
+        email,
+        customerName,
+        orderId,
+        { pickupLocation, deliveryLocation, vehicleYear, vehicleMake, vehicleModel, balanceDue, paidInFull },
+      );
+      this.logger.info(`Delivery confirmation email sent to ${email} for order ${orderId}`, {
+        context: 'EmailProcessor',
+        jobId: job.id,
+        email,
+        orderId,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send delivery confirmation to ${email} for order ${orderId}`, {
+        context: 'EmailProcessor',
+        email,
+        orderId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  private async handleCarrierJobAlert(job: Job<EmailJob>): Promise<void> {
+    const data = job.data as Extract<EmailJob, { type: 'carrier_job_alert' }>;
+    const { email, companyName, orderId, orderDetails } = data;
+
+    try {
+      await this.emailService.sendCarrierJobAlert(
+        email,
+        companyName,
+        orderId,
+        orderDetails,
+      );
+      this.logger.info(`Carrier job alert sent to ${email} for order ${orderId}`, {
+        context: 'EmailProcessor',
+        jobId: job.id,
+        email,
+        orderId,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send carrier job alert to ${email} for order ${orderId}`, {
+        context: 'EmailProcessor',
+        email,
+        orderId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
   }
 

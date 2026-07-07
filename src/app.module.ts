@@ -15,6 +15,12 @@ import { LoggerModule } from './common/modules/logger.module';
 import { CustomerModule } from './modules/customer/customer.module';
 import { QueueModule } from './common/modules/queue.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { SuperDispatchModule } from './modules/super-dispatch/super-dispatch.module';
+import { TailwindTmsModule } from './modules/tailwind-tms/tailwind-tms.module';
+import { QuickBooksModule } from './modules/quickbooks/quickbooks.module';
+import { CarrierModule } from './modules/carrier/carrier.module';
+import { ScheduledTasksModule } from './modules/scheduled-tasks/scheduled-tasks.module';
+import { DeliveryModule } from './modules/delivery/delivery.module';
 
 const isRateLimitEnabled = process.env.NODE_ENV !== 'development';
 
@@ -45,6 +51,12 @@ const isRateLimitEnabled = process.env.NODE_ENV !== 'development';
     ContactModule,
     CustomerModule,
     AdminModule,
+    SuperDispatchModule,
+    TailwindTmsModule,
+    QuickBooksModule,
+    CarrierModule,
+    ScheduledTasksModule,
+    DeliveryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

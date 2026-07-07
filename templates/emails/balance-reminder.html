@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Balance Reminder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 30px;
+            border: 1px solid #ddd;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .payment-box {
+            background-color: #fff;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            border: 2px solid #e74c3c;
+        }
+        .amount {
+            font-size: 28px;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .details {
+            background-color: #fff;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #eee;
+        }
+        .details table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .details td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .details td:first-child {
+            font-weight: bold;
+            width: 140px;
+            color: #555;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background-color: #3498db;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Payment Reminder</h1>
+        </div>
+        <p>Hi {{customerName}},</p>
+        <p>This is a reminder that you have an outstanding balance on your vehicle transport order.</p>
+        <div class="payment-box">
+            <p>Balance Due</p>
+            <div class="amount">${{balanceDue}}</div>
+        </div>
+        <div class="details">
+            <table>
+                <tr><td>Order ID</td><td>{{orderId}}</td></tr>
+                <tr><td>Vehicle</td><td>{{vehicleYear}} {{vehicleMake}} {{vehicleModel}}</td></tr>
+                <tr><td>Status</td><td>{{orderStatus}}</td></tr>
+            </table>
+        </div>
+        <p>Please remit payment at your earliest convenience to avoid any delays in the transport process.</p>
+        <p style="text-align: center;">
+            <a href="{{paymentLink}}" class="button">Pay Now</a>
+        </p>
+        <p>Best regards,<br>Your Team</p>
+        <div class="footer">
+            <p>&copy; {{year}} Your Company. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -33,11 +33,75 @@ export interface AdminContactEmailJob {
   message: string;
 }
 
+export interface BookingConfirmationEmailJob {
+  type: 'booking_confirmation';
+  email: string;
+  customerName: string;
+  orderId: string;
+  vehicleYear: number;
+  vehicleMake: string;
+  vehicleModel: string;
+  pickupLocation: string;
+  deliveryLocation: string;
+  transportType: string;
+  totalPrice: number;
+  depositPaid: number;
+  balanceDue: number;
+}
+
+export interface BalanceReminderEmailJob {
+  type: 'balance_reminder';
+  email: string;
+  customerName: string;
+  orderId: string;
+  balanceDue: number;
+  vehicleYear: number;
+  vehicleMake: string;
+  vehicleModel: string;
+  orderStatus: string;
+  paymentLink: string;
+}
+
+export interface DeliveryConfirmationEmailJob {
+  type: 'delivery_confirmation';
+  email: string;
+  customerName: string;
+  orderId: string;
+  pickupLocation: string;
+  deliveryLocation: string;
+  vehicleYear: number;
+  vehicleMake: string;
+  vehicleModel: string;
+  balanceDue: number;
+  paidInFull: boolean;
+}
+
+export interface CarrierJobAlertEmailJob {
+  type: 'carrier_job_alert';
+  email: string;
+  companyName: string;
+  orderId: string;
+  orderDetails: {
+    customerName: string;
+    pickupLocation: string;
+    deliveryLocation: string;
+    vehicleYear: number;
+    vehicleMake: string;
+    vehicleModel: string;
+    transportType: string;
+    payout: number;
+  };
+}
+
 export type EmailJob =
   | VerificationEmailJob
   | WelcomeEmailJob
   | PasswordResetEmailJob
-  | AdminContactEmailJob;
+  | AdminContactEmailJob
+  | CarrierJobAlertEmailJob
+  | BookingConfirmationEmailJob
+  | BalanceReminderEmailJob
+  | DeliveryConfirmationEmailJob;
 
 @Injectable()
 export class EmailQueueService {
@@ -95,6 +159,60 @@ export class EmailQueueService {
     );
   }
 
+  async sendBookingConfirmation(
+    email: string,
+    customerName: string,
+    orderId: string,
+    details: Omit<BookingConfirmationEmailJob, 'type' | 'email' | 'customerName' | 'orderId'>,
+  ): Promise<void> {
+    await this.emailQueue.add(
+      'send-booking-confirmation',
+      {
+        type: 'booking_confirmation',
+        email,
+        customerName,
+        orderId,
+        ...details,
+      } as BookingConfirmationEmailJob,
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    );
+  }
+
+  async sendBalanceReminder(
+    email: string,
+    customerName: string,
+    orderId: string,
+    details: Omit<BalanceReminderEmailJob, 'type' | 'email' | 'customerName' | 'orderId'>,
+  ): Promise<void> {
+    await this.emailQueue.add(
+      'send-balance-reminder',
+      {
+        type: 'balance_reminder',
+        email,
+        customerName,
+        orderId,
+        ...details,
+      } as BalanceReminderEmailJob,
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    );
+  }
+
   async sendPasswordResetEmail(
     email: string,
     username: string,
@@ -110,6 +228,60 @@ export class EmailQueueService {
         resetCode,
         authId,
       } as PasswordResetEmailJob,
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    );
+  }
+
+  async sendDeliveryConfirmation(
+    email: string,
+    customerName: string,
+    orderId: string,
+    details: Omit<DeliveryConfirmationEmailJob, 'type' | 'email' | 'customerName' | 'orderId'>,
+  ): Promise<void> {
+    await this.emailQueue.add(
+      'send-delivery-confirmation',
+      {
+        type: 'delivery_confirmation',
+        email,
+        customerName,
+        orderId,
+        ...details,
+      } as DeliveryConfirmationEmailJob,
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    );
+  }
+
+  async sendCarrierJobAlert(
+    email: string,
+    companyName: string,
+    orderId: string,
+    orderDetails: CarrierJobAlertEmailJob['orderDetails'],
+  ): Promise<void> {
+    await this.emailQueue.add(
+      'send-carrier-job-alert',
+      {
+        type: 'carrier_job_alert',
+        email,
+        companyName,
+        orderId,
+        orderDetails,
+      } as CarrierJobAlertEmailJob,
       {
         attempts: 3,
         backoff: {

@@ -51,17 +51,9 @@ export class CustomerFunnelController {
               quoteJobId: '12',
               orderId: 'CCG-7788JD',
               finalCalculatedPrice: 1250,
+              instantDiscountApplied: -100,
               warningDisclaimer:
                 'Do not block windows. Personal property in the vehicle is not covered by insurance.',
-              pricingBreakdown: {
-                baseMarketRate: 800,
-                carrierConfigurationMarkup: 400,
-                operationalConditionFee: 0,
-                internalCargoWeightFee: 150,
-                timelineUrgencyFee: 0,
-                instantCasinoDiscount: -100,
-                netSubTotal: 1250,
-              },
               uxTriggers: {
                 launchWinningDiscountVideoModal: true,
                 countdownDurationSeconds: 2820,
